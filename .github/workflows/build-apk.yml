@@ -29,16 +29,29 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Tambahkan Izin Jaringan & Penyimpanan di AndroidManifest
+      - name: Perbaiki Resolusi Gradle & Tambahkan Izin Penyimpanan
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          sed -i 's/<uses-permission android:name="android.permission.INTERNET" \/>/<uses-permission android:name="android.permission.INTERNET" \/>\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" \/>\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" \/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" \/>/' $MANIFEST
+          sed -i 's/<uses-permission android:name="android.permission.INTERNET" \/>/<uses-permission android:name="android.permission.INTERNET" \/>\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" \/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" \/>/' $MANIFEST
+
+          cat << 'EOF' >> android/build.gradle
+
+          subprojects {
+              configurations.all {
+                  resolutionStrategy {
+                      force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.22'
+                      force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.22'
+                      force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.22'
+                  }
+              }
+          }
+          EOF
 
       - name: Build Debug APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK ke Artifacts
         uses: actions/upload-artifact@v4
