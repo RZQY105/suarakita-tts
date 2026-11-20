@@ -1,0 +1,10 @@
+{
+  "appId": "com.suarakita.tts",
+  "appName": "SuaraKita TTS",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  }
+}
