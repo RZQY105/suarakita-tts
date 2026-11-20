@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>SuaraKita TTS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; user-select: none; }
+    textarea { user-select: text; }
+    @keyframes wave {
+      0%, 100% { height: 22%; }
+      50% { height: 95%; }
+    }
+    .bar-anim { animation: wave 0.65s ease-in-out infinite; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between p-4 font-sans">
+
+  <!-- Header -->
+  <div class="w-full max-w-md mx-auto space-y-4">
+    <div class="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-3xl p-4 shadow-xl shadow-indigo-950/50 flex items-center justify-between border border-white/10">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center text-2xl shadow-inner">🎙️</div>
+        <div>
+          <h1 class="font-bold text-lg tracking-tight">SuaraKita</h1>
+          <p class="text-xs text-indigo-100/80">Text-to-Speech Indonesia</p>
+        </div>
+      </div>
+      <span class="text-[11px] font-semibold px-3 py-1 rounded-full bg-emerald-400/20 text-emerald-200 border border-emerald-300/30">
+        ● Suara Natural
+      </span>
+    </div>
+
+    <!-- Pengaturan Suara -->
+    <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-4 space-y-4 shadow-lg">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1.5">Bahasa / Logat</label>
+          <select id="langSelect" class="w-full text-sm bg-slate-800 border border-slate-700 text-slate-100 rounded-2xl px-3 py-2.5 focus:outline-none focus:border-indigo-500">
+            <option value="id">Indonesia (Natural)</option>
+            <option value="jv">Jawa (Indonesia)</option>
+            <option value="su">Sunda (Indonesia)</option>
+            <option value="en">Inggris (US)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1.5">Kecepatan: <span id="rateVal" class="text-indigo-400 font-bold">1.0x</span></label>
+          <input id="rateSlider" type="range" min="0.6" max="1.6" step="0.1" value="1.0"
+            class="w-full accent-indigo-500 mt-3 cursor-pointer" />
+        </div>
+      </div>
+
+      <!-- Area Naskah -->
+      <div>
+        <div class="flex justify-between items-center mb-1.5">
+          <label class="text-xs font-medium text-slate-400">Masukkan Naskah</label>
+          <div class="flex gap-3">
+            <button id="pasteBtn" class="text-xs text-indigo-400 font-medium active:opacity-70">Tempel</button>
+            <button id="clearBtn" class="text-xs text-rose-400 font-medium active:opacity-70">Hapus</button>
+          </div>
+        </div>
+        <textarea id="textInput" rows="5"
+          class="w-full rounded-2xl border border-slate-700/80 bg-slate-950/70 p-3.5 text-sm text-slate-100 leading-relaxed focus:outline-none focus:border-indigo-500"
+          placeholder="Tulis teks yang ingin diubah menjadi suara...">Halo! Selamat datang di aplikasi SuaraKita. Teks ini akan diubah menjadi suara manusia yang jernih dan bisa langsung disimpan ke penyimpanan HP Anda.</textarea>
+        <div class="flex justify-between text-[11px] text-slate-400 mt-2 px-1">
+          <span id="charCount">151 karakter</span>
+          <span id="statusText" class="font-semibold text-indigo-400">Siap digunakan</span>
+        </div>
+      </div>
+
+      <!-- Visualizer -->
+      <div class="bg-slate-950/80 rounded-2xl p-3 border border-slate-800/80 flex flex-col items-center justify-center h-20">
+        <div id="visualizer" class="flex items-center justify-center gap-1 h-9 w-full"></div>
+        <p id="chunkInfo" class="text-[11px] text-slate-400 mt-1.5">Tekan "Putar Suara" untuk mendengarkan</p>
+      </div>
+
+      <!-- Tombol Putar & Stop -->
+      <div class="grid grid-cols-3 gap-2.5">
+        <button id="playBtn"
+          class="col-span-2 bg-indigo-600 active:bg-indigo-700 text-white font-semibold py-3.5 px-4 rounded-2xl shadow-lg shadow-indigo-950 flex items-center justify-center gap-2 transition">
+          <span>▶</span> <span id="playBtnLabel">Putar Suara</span>
+        </button>
+        <button id="stopBtn"
+          class="bg-slate-800 active:bg-slate-700 text-rose-400 font-semibold py-3.5 px-3 rounded-2xl border border-slate-700 transition">
+          ■ Stop
+        </button>
+      </div>
+
+      <!-- Tombol Simpan ke HP -->
+      <button id="saveBtn"
+        class="w-full bg-emerald-600 active:bg-emerald-700 text-white font-semibold py-4 px-4 rounded-2xl shadow-lg shadow-emerald-950 flex items-center justify-center gap-2 transition">
+        <span>💾</span> <span>Simpan Audio ke HP (.MP3)</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal Notifikasi Kustom (Pengganti alert bawaan) -->
+  <div id="customModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-5 z-50">
+    <div class="bg-slate-900 border border-slate-700 rounded-3xl p-5 max-w-sm w-full space-y-4 shadow-2xl">
+      <div class="flex items-center gap-3">
+        <div id="modalIcon" class="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl">✅</div>
+        <h3 id="modalTitle" class="font-bold text-base text-white">Berhasil Disimpan</h3>
+      </div>
+      <p id="modalDesc" class="text-xs text-slate-300 leading-relaxed"></p>
+      <div class="flex gap-2 pt-1">
+        <button id="shareFileBtn" class="hidden flex-1 bg-indigo-600 text-white text-xs font-semibold py-3 rounded-xl">
+          Bagikan / Buka File
+        </button>
+        <button id="closeModalBtn" class="flex-1 bg-slate-800 text-slate-200 text-xs font-semibold py-3 rounded-xl border border-slate-700">
+          Tutup
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const textInput = document.getElementById('textInput');
+    const charCount = document.getElementById('charCount');
+    const statusText = document.getElementById('statusText');
+    const chunkInfo = document.getElementById('chunkInfo');
+    const playBtn = document.getElementById('playBtn');
+    const playBtnLabel = document.getElementById('playBtnLabel');
+    const stopBtn = document.getElementById('stopBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const pasteBtn = document.getElementById('pasteBtn');
+    const rateSlider = document.getElementById('rateSlider');
+    const rateVal = document.getElementById('rateVal');
+    const langSelect = document.getElementById('langSelect');
+    const visualizer = document.getElementById('visualizer');
+
+    const customModal = document.getElementById('customModal');
+    const modalIcon = document.getElementById('modalIcon');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalDesc = document.getElementById('modalDesc');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const shareFileBtn = document.getElementById('shareFileBtn');
+
+    let lastSavedUri = null;
+
+    function showModal(title, desc, isError = false, fileUri = null) {
+      modalIcon.textContent = isError ? '⚠️' : '✅';
+      modalIcon.className = isError
+        ? 'w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-xl'
+        : 'w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl';
+      modalTitle.textContent = title;
+      modalDesc.textContent = desc;
+      lastSavedUri = fileUri;
+      if (fileUri && window.Capacitor?.Plugins?.Share) {
+        shareFileBtn.classList.remove('hidden');
+      } else {
+        shareFileBtn.classList.add('hidden');
+      }
+      customModal.classList.remove('hidden');
+      customModal.classList.add('flex');
+    }
+
+    closeModalBtn.onclick = () => {
+      customModal.classList.add('hidden');
+      customModal.classList.remove('flex');
+    };
+
+    shareFileBtn.onclick = async () => {
+      if (lastSavedUri && window.Capacitor?.Plugins?.Share) {
+        await window.Capacitor.Plugins.Share.share({
+          title: 'Audio SuaraKita',
+          url: lastSavedUri
+        });
+      }
+    };
+
+    // Visualizer Bars
+    const bars = [];
+    for (let i = 0; i < 24; i++) {
+      const bar = document.createElement('div');
+      bar.className = 'w-1 bg-indigo-400 rounded-full transition-all duration-150';
+      bar.style.height = '22%';
+      bar.style.animationDelay = `${(i % 6) * 0.1}s`;
+      visualizer.appendChild(bar);
+      bars.push(bar);
+    }
+
+    function setVisualPlaying(active) {
+      bars.forEach(b => {
+        if (active) b.classList.add('bar-anim');
+        else {
+          b.classList.remove('bar-anim');
+          b.style.height = '22%';
+        }
+      });
+    }
+
+    textInput.addEventListener('input', () => {
+      charCount.textContent = `${textInput.value.length} karakter`;
+    });
+
+    rateSlider.addEventListener('input', () => {
+      rateVal.textContent = `${parseFloat(rateSlider.value).toFixed(1)}x`;
+      if (currentAudio) currentAudio.playbackRate = parseFloat(rateSlider.value);
+    });
+
+    clearBtn.onclick = () => {
+      stopPlayback();
+      textInput.value = '';
+      charCount.textContent = '0 karakter';
+    };
+
+    pasteBtn.onclick = async () => {
+      try {
+        const clip = await navigator.clipboard.readText();
+        if (clip) {
+          textInput.value = clip;
+          charCount.textContent = `${clip.length} karakter`;
+        }
+      } catch (e) {
+        showModal('Info Tempel', 'Silakan tekan dan tahan pada kotak teks lalu pilih Tempel.', true);
+      }
+    };
+
+    function splitText(text, maxLen = 180) {
+      const clean = text.replace(/\s+/g, ' ').trim();
+      if (!clean) return [];
+      const sentences = clean.match(/[^.!?]+[.!?]*/g) || [clean];
+      const chunks = [];
+      for (const s of sentences) {
+        if (s.length <= maxLen) {
+          chunks.push(s.trim());
+        } else {
+          const words = s.split(' ');
+          let temp = '';
+          for (const w of words) {
+            if ((temp + ' ' + w).trim().length > maxLen) {
+              if (temp) chunks.push(temp.trim());
+              temp = w;
+            } else {
+              temp = (temp + ' ' + w).trim();
+            }
+          }
+          if (temp) chunks.push(temp.trim());
+        }
+      }
+      return chunks.filter(Boolean);
+    }
+
+    function buildTtsUrl(chunk) {
+      const lang = langSelect.value || 'id';
+      const encoded = encodeURIComponent(chunk);
+      return `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${encoded}&tl=${lang}&client=tw-ob`;
+    }
+
+    let chunksQueue = [];
+    let currentIndex = 0;
+    let currentAudio = null;
+    let isPaused = false;
+
+    function stopPlayback() {
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.src = '';
+        currentAudio = null;
+      }
+      isPaused = false;
+      currentIndex = 0;
+      setVisualPlaying(false);
+      playBtnLabel.textContent = 'Putar Suara';
+      statusText.textContent = 'Siap digunakan';
+      chunkInfo.textContent = 'Tekan "Putar Suara" untuk mendengarkan';
+    }
+
+    function playNextChunk() {
+      if (currentIndex >= chunksQueue.length) {
+        stopPlayback();
+        statusText.textContent = 'Selesai diputar';
+        return;
+      }
+
+      const text = chunksQueue[currentIndex];
+      chunkInfo.textContent = `Membaca bagian ${currentIndex + 1} dari ${chunksQueue.length}...`;
+      statusText.textContent = 'Sedang Memutar';
+      playBtnLabel.textContent = 'Jeda Suara';
+      setVisualPlaying(true);
+
+      const audio = new Audio(buildTtsUrl(text));
+      audio.playbackRate = parseFloat(rateSlider.value);
+      currentAudio = audio;
+
+      audio.onended = () => {
+        currentIndex++;
+        playNextChunk();
+      };
+
+      audio.onerror = () => {
+        statusText.textContent = 'Periksa koneksi internet';
+        setVisualPlaying(false);
+        showModal('Koneksi Terputus', 'Pastikan HP terhubung ke internet untuk memuat suara natural.', true);
+      };
+
+      audio.play().catch(() => {
+        setVisualPlaying(false);
+      });
+    }
+
+    playBtn.onclick = () => {
+      if (currentAudio && !isPaused && !currentAudio.paused) {
+        currentAudio.pause();
+        isPaused = true;
+        setVisualPlaying(false);
+        playBtnLabel.textContent = 'Lanjutkan';
+        statusText.textContent = 'Dijeda';
+        return;
+      }
+
+      if (currentAudio && isPaused) {
+        currentAudio.play();
+        isPaused = false;
+        setVisualPlaying(true);
+        playBtnLabel.textContent = 'Jeda Suara';
+        statusText.textContent = 'Sedang Memutar';
+        return;
+      }
+
+      const text = textInput.value.trim();
+      if (!text) {
+        showModal('Teks Kosong', 'Silakan ketik atau tempel naskah terlebih dahulu.', true);
+        return;
+      }
+      chunksQueue = splitText(text);
+      currentIndex = 0;
+      playNextChunk();
+    };
+
+    stopBtn.onclick = stopPlayback;
+
+    // Konversi ArrayBuffer ke Base64 untuk Capacitor Filesystem
+    function arrayBufferToBase64(buffer) {
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      const len = bytes.byteLength;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return window.btoa(binary);
+    }
+
+    // Simpan MP3 langsung ke penyimpanan internal Android
+    saveBtn.onclick = async () => {
+      const text = textInput.value.trim();
+      if (!text) {
+        showModal('Teks Kosong', 'Masukkan naskah yang ingin disimpan sebagai audio.', true);
+        return;
+      }
+
+      saveBtn.disabled = true;
+      const origHTML = saveBtn.innerHTML;
+      saveBtn.innerHTML = '<span>⏳</span> <span>Menyimpan ke HP...</span>';
+      statusText.textContent = 'Memproses file MP3...';
+
+      try {
+        const chunks = splitText(text);
+        const buffers = [];
+
+        for (const chunk of chunks) {
+          const url = buildTtsUrl(chunk);
+          const res = await fetch(url);
+          if (!res.ok) throw new Error('Gagal mengunduh stream suara');
+          buffers.push(await res.arrayBuffer());
+        }
+
+        const mergedBlob = new Blob(buffers, { type: 'audio/mpeg' });
+        const mergedBuffer = await mergedBlob.arrayBuffer();
+        const fileName = `SuaraKita_${Date.now()}.mp3`;
+
+        // Cek apakah berjalan sebagai APK Android (Capacitor)
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem) {
+          const { Filesystem } = window.Capacitor.Plugins;
+          const base64Data = arrayBufferToBase64(mergedBuffer);
+
+          // Simpan ke folder Download / Documents perangkat
+          const savedFile = await Filesystem.writeFile({
+            path: `Download/${fileName}`,
+            data: base64Data,
+            directory: 'EXTERNAL_STORAGE',
+            recursive: true
+          }).catch(async () => {
+            // Fallback ke folder Documents jika Android 11+ membatasi root Download
+            return await Filesystem.writeFile({
+              path: fileName,
+              data: base64Data,
+              directory: 'DOCUMENTS',
+              recursive: true
+            });
+          });
+
+          statusText.textContent = 'Tersimpan di HP!';
+          showModal(
+            'Audio Berhasil Disimpan!',
+            `File "${fileName}" telah tersimpan di memori internal HP Anda (folder Download / Documents).`,
+            false,
+            savedFile.uri
+          );
+        } else {
+          // Fallback jika dibuka lewat browser biasa
+          const blobUrl = URL.createObjectURL(mergedBlob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          statusText.textContent = 'File diunduh!';
+          showModal('Audio Diunduh', `File "${fileName}" telah diunduh ke penyimpanan browser Anda.`);
+        }
+      } catch (err) {
+        statusText.textContent = 'Gagal menyimpan';
+        showModal('Gagal Menyimpan Audio', 'Pastikan koneksi internet stabil dan izin penyimpanan diizinkan.', true);
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = origHTML;
+      }
+    };
+  </script>
+</body>
+</html>
