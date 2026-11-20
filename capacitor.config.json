@@ -3,6 +3,11 @@
   "appName": "SuaraKita TTS",
   "webDir": "www",
   "bundledWebRuntime": false,
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  },
   "server": {
     "androidScheme": "https",
     "cleartext": true
