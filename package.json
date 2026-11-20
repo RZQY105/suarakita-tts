@@ -1,0 +1,18 @@
+{
+  "name": "suarakita-tts",
+  "version": "1.0.0",
+  "description": "Aplikasi Text to Speech Bahasa Indonesia siap instal Android",
+  "main": "index.js",
+  "scripts": {
+    "build": "echo 'Build selesai'"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/filesystem": "^6.0.1",
+    "@capacitor/share": "^6.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2"
+  }
+}
